@@ -3,28 +3,20 @@ USE ShopDB;
 
 START TRANSACTION;
 
-SELECT WarehouseAmount
-INTO @stock
-FROM Products
-WHERE ID = 1
-FOR UPDATE;  
+UPDATE Products
+SET WarehouseAmount = WarehouseAmount - 1
+WHERE ID = 1 AND WarehouseAmount >= 1;
 
-IF @stock < 1 THEN
-    ROLLBACK;
-    SELECT 'Not enough stock. Transaction cancelled.' AS Message;
-ELSE
-    INSERT INTO Orders (CustomerID, Date)
-    VALUES ('1', '2023-01-01');
+SELECT ROW_COUNT() INTO @affected_rows;
 
-    SET @new_order_id = LAST_INSERT_ID();
+INSERT INTO Orders (CustomerID, Date)
+SELECT '1', '2023-01-01'
+WHERE @affected_rows > 0;
 
-    INSERT INTO OrderItems (OrderID, ProductID, Count)
-    VALUES (@new_order_id, 1, 1);
+SET @new_order_id = LAST_INSERT_ID();
 
-    UPDATE Products
-    SET WarehouseAmount = WarehouseAmount - 1
-    WHERE ID = 1;
+INSERT INTO OrderItems (OrderID, ProductID, Count)
+SELECT @new_order_id, 1, 1
+WHERE @affected_rows > 0;
 
-    COMMIT;
-    SELECT 'Order successfully placed.' AS Message;
-END IF; 
+COMMIT;
